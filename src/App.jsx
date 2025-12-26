@@ -502,8 +502,8 @@ const App = () => {
             </div>
           </div>
 
-          <div className="lg:col-span-4 h-fit sticky top-8">
-            <div className="bg-white rounded-[40px] shadow-2xl shadow-slate-200 border border-slate-200 flex flex-col max-h-[calc(100vh-100px)] overflow-hidden font-sans">
+          <div className="lg:col-span-4 h-fit">
+            <div className="bg-white rounded-[40px] shadow-2xl shadow-slate-200 border border-slate-200 flex flex-col  overflow-hidden font-sans">
               <div className="px-8 py-7 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 backdrop-blur-md">
                 <h2 className="font-black text-slate-800 text-lg uppercase tracking-tight">定量分析数据</h2>
                 <div className="flex items-center gap-2">
@@ -548,7 +548,7 @@ const App = () => {
                 </div>
               )}
               
-              <div className="overflow-y-auto p-6 pb=40 space-y-4 custom-scrollbar flex-1 bg-white">
+              <div className="p-6 space-y-4 bg-white">
                 {bands.length === 0 ? (
                   <div className="py-24 text-center space-y-6 opacity-30 font-sans">
                     <Plus size={64} className="mx-auto" />
