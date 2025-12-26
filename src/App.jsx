@@ -548,7 +548,7 @@ const App = () => {
                 </div>
               )}
               
-              <div className="overflow-y-auto p-6 space-y-4 custom-scrollbar flex-1 bg-white">
+              <div className="overflow-y-auto p-6 pb=40 space-y-4 custom-scrollbar flex-1 bg-white">
                 {bands.length === 0 ? (
                   <div className="py-24 text-center space-y-6 opacity-30 font-sans">
                     <Plus size={64} className="mx-auto" />
@@ -610,7 +610,7 @@ const App = () => {
               </div>
               
               {bands.length > 0 && (
-                <div className="p-8 border-t border-slate-100 bg-slate-50/50 space-y-4">
+                <div className="sticky bottom-0 z-20 p-8 border-t border-slate-100 bg-slate-50/95 space-y-4">
                     <div className="grid grid-cols-2 gap-3">
                        <button onClick={() => setCalculationMode('reference')} className={`py-4 rounded-2xl text-[11px] font-black uppercase transition-all shadow-sm ${calculationMode === 'reference' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>基准模式</button>
                        <button onClick={() => setCalculationMode('custom')} className={`py-4 rounded-2xl text-[11px] font-black uppercase transition-all shadow-sm ${calculationMode === 'custom' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>定值模式</button>
