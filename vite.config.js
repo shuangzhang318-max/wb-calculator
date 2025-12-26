@@ -1,10 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// https://vitejs.dev/config/
+// 还原为本地开发模式，去除了 GitHub Pages 的 base 路径限制
 export default defineConfig({
   plugins: [react()],
-  // 必须添加 base 配置，否则部署后无法加载 JS/CSS 文件
-  // 这里的 'wb-calculator' 必须与你在 GitHub 上创建的仓库名称完全一致
-  base: '/wb-calculator/',
 })
