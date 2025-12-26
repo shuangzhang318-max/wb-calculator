@@ -1,20 +1,3 @@
-/* Tailwind v4 的标准引入方式 */
-@import "tailwindcss";
-
-/* 以下是自定义滚动条样式 */
-@layer utilities {
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #e2e8f0;
-    border-radius: 10px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #cbd5e1;
-  }
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
