@@ -593,11 +593,11 @@ const App = () => {
                         )}
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-400 uppercase ml-1 tracking-tight">本次上样 (μL)</label>
+                            <label className="text-[9px] font-black text-slate-400 uppercase ml-1 tracking-tight">本次上样 (微升)</label>
                             <input type="number" value={band.currentLoading} onClick={e => e.stopPropagation()} onChange={e => setBands(bands.map(b => b.id === band.id ? {...b, currentLoading: parseFloat(e.target.value)||0} : b))} className="w-full text-sm font-mono font-bold bg-white border border-slate-200 rounded-2xl px-4 py-2.5 focus:ring-4 focus:ring-blue-50 outline-none transition-all" />
                           </div>
                           <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-blue-500 uppercase ml-1 tracking-tight">建议下回 (μL)</label>
+                            <label className="text-[9px] font-black text-blue-500 uppercase ml-1 tracking-tight">建议下回 (微升)</label>
                             <div className="bg-blue-600 text-white rounded-2xl px-4 py-2.5 text-sm font-mono font-black text-center shadow-lg shadow-blue-100 flex items-center justify-center gap-1">
                               {getSuggestedLoading(band)}
                             </div>
