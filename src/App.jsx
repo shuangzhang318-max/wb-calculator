@@ -1,11 +1,37 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { 
   Upload, Trash2, Plus, RefreshCw, 
-  Download, Layers, CheckCircle2, 
-  Move, ZoomIn, ZoomOut, Eye, EyeOff, 
-  Maximize2, Sun, Contrast, HelpCircle, Keyboard, Target as TargetIcon,
-  Search, Eraser, Command, MousePointer2, Crosshair
+  Download, Layers, 
+  Maximize2, Sun, Contrast, Keyboard,
+  Eraser, Command, MousePointer2, Crosshair,
+  ZoomIn, ZoomOut, Eye, EyeOff
 } from 'lucide-react';
+
+const clampInt = (v, min, fallback) => {
+  if (v === '' || v === null || v === undefined) return fallback;
+  const n = parseInt(String(v), 10);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, n);
+};
+
+const clampFloat = (v, min, fallback) => {
+  if (v === '' || v === null || v === undefined) return fallback;
+  const n = parseFloat(String(v));
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, n);
+};
+
+// 只保留数字（整数）
+const onlyInt = (s) => String(s).replace(/[^\d]/g, '');
+
+// 只保留数字 + 小数点（小数）
+const onlyFloat = (s) => {
+  let t = String(s).replace(/[^\d.]/g, '');
+  // 只允许一个小数点
+  const parts = t.split('.');
+  if (parts.length <= 2) return t;
+  return parts[0] + '.' + parts.slice(1).join('');
+};
 
 const App = () => {
   const [image, setImage] = useState(null);
@@ -15,8 +41,10 @@ const App = () => {
   
   const [showAllBandsOnCanvas, setShowAllBandsOnCanvas] = useState(true);
   const [isFixedSize, setIsFixedSize] = useState(false);
-  const [fixedWidth, setFixedWidth] = useState(80);
-  const [fixedHeight, setFixedHeight] = useState(30);
+
+  // ✅ 修复 #3：固定尺寸输入用字符串存储，允许清空；失焦再校验
+  const [fixedWidthStr, setFixedWidthStr] = useState('80');
+  const [fixedHeightStr, setFixedHeightStr] = useState('30');
 
   const [brightness, setBrightness] = useState(100); 
   const [contrast, setContrast] = useState(100);
@@ -34,12 +62,18 @@ const App = () => {
   const [calculationMode, setCalculationMode] = useState('reference'); 
   const [customTargetNetIntensity, setCustomTargetNetIntensity] = useState(100);
 
+  // ✅ 修复 #3：选中条带的 x/y/w/h & 上样量编辑态（字符串），允许清空
+  const [editMap, setEditMap] = useState({}); // key: `${id}:${field}` => string
+
   const canvasRef = useRef(null);
   const imgRef = useRef(null);
   const magnifierRef = useRef(null);
   const keyboardTimer = useRef(null);
 
   const totalScale = useMemo(() => baseScale * zoom, [baseScale, zoom]);
+
+  const fixedWidthNum = useMemo(() => clampInt(fixedWidthStr, 5, 80), [fixedWidthStr]);
+  const fixedHeightNum = useMemo(() => clampInt(fixedHeightStr, 5, 30), [fixedHeightStr]);
 
   const backgroundGray = useMemo(() => {
     const bgBand = bands.find(b => b.id === bgBandId);
@@ -72,42 +106,74 @@ const App = () => {
     return Math.abs(backgroundGray - bandGray);
   }, [backgroundGray]);
 
+  /**
+   * ✅ 修复 #1：放大镜视野增大 + “contain”绘制，确保大条带也能完整显示
+   * - canvas 240×240
+   * - src 视野根据 activeBand 大小动态扩大（带 padding）
+   * - drawImage 按 contain 缩放，不裁切
+   */
   const renderMagnifier = useCallback((x, y, activeBand) => {
     if (!magnifierRef.current || !imgRef.current) return;
-    const mCtx = magnifierRef.current.getContext('2d');
-    const mSize = 150; 
-    const mScale = 2; 
-    const srcSize = mSize / mScale;
+    const mCanvas = magnifierRef.current;
+    const mCtx = mCanvas.getContext('2d');
 
-    magnifierRef.current.width = mSize;
-    magnifierRef.current.height = mSize;
+    const mSize = 240;           // 原来 150：偏小，条带大时很容易裁切
+    const baseSrc = 110;         // 基础视野（比原先更大）
+
+    mCanvas.width = mSize;
+    mCanvas.height = mSize;
     mCtx.clearRect(0, 0, mSize, mSize);
-    
+
+    // 动态视野：保证能把整个框选区域放进来（并加一点 padding）
+    const pad = 18;
+    let srcW = baseSrc;
+    let srcH = baseSrc;
+    if (activeBand && activeBand.width && activeBand.height) {
+      srcW = Math.max(baseSrc, activeBand.width + pad * 2);
+      srcH = Math.max(baseSrc, activeBand.height + pad * 2);
+    }
+
+    // 以鼠标点为中心（如果有 activeBand，则也能覆盖条带）
+    const sx = Math.max(0, Math.min(x - srcW / 2, imgRef.current.width - srcW));
+    const sy = Math.max(0, Math.min(y - srcH / 2, imgRef.current.height - srcH));
+
+    // contain 缩放：确保 srcW×srcH 全部塞进 mSize×mSize
+    const scale = Math.min(mSize / srcW, mSize / srcH);
+    const dw = srcW * scale;
+    const dh = srcH * scale;
+    const dx = (mSize - dw) / 2;
+    const dy = (mSize - dh) / 2;
+
     mCtx.save();
     mCtx.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
-    const sx = Math.max(0, Math.min(x - srcSize / 2, imgRef.current.width - srcSize));
-    const sy = Math.max(0, Math.min(y - srcSize / 2, imgRef.current.height - srcSize));
-    mCtx.drawImage(imgRef.current, sx, sy, srcSize, srcSize, 0, 0, mSize, mSize);
+    mCtx.imageSmoothingEnabled = false;
+    mCtx.drawImage(imgRef.current, sx, sy, srcW, srcH, dx, dy, dw, dh);
     mCtx.restore();
 
     if (activeBand) {
       mCtx.save();
       mCtx.strokeStyle = '#3b82f6';
       mCtx.lineWidth = 2;
-      const mx = (activeBand.x - sx) * mScale;
-      const my = (activeBand.y - sy) * mScale;
-      const mw = activeBand.width * mScale;
-      const mh = activeBand.height * mScale;
+
+      const mx = dx + (activeBand.x - sx) * scale;
+      const my = dy + (activeBand.y - sy) * scale;
+      const mw = activeBand.width * scale;
+      const mh = activeBand.height * scale;
+
       mCtx.strokeRect(mx, my, mw, mh);
       mCtx.restore();
     }
 
-    mCtx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
+    // 中心十字线
+    mCtx.strokeStyle = 'rgba(239, 68, 68, 0.45)';
     mCtx.beginPath();
     mCtx.moveTo(mSize / 2, 0); mCtx.lineTo(mSize / 2, mSize);
     mCtx.moveTo(0, mSize / 2); mCtx.lineTo(mSize, mSize / 2);
     mCtx.stroke();
-    mCtx.strokeStyle = '#cbd5e1'; mCtx.lineWidth = 2;
+
+    // 边框
+    mCtx.strokeStyle = '#cbd5e1';
+    mCtx.lineWidth = 2;
     mCtx.strokeRect(0, 0, mSize, mSize);
   }, [brightness, contrast]);
 
@@ -117,15 +183,28 @@ const App = () => {
     return { x: (e.clientX - rect.left) / totalScale, y: (e.clientY - rect.top) / totalScale };
   }, [totalScale]);
 
-  const updateBandProperty = useCallback((id, key, val) => {
+  // ✅ 修复 #3：band 属性更新不要在输入中强行回填；统一在 blur 提交
+  const commitBandProperty = useCallback((id, key, rawVal) => {
     setBands(prev => prev.map(b => {
-      if (b.id === id) {
-        const nb = { ...b, [key]: parseFloat(val) || 0 };
-        return { ...nb, grayscale: calculateGrayscale(nb, imgRef.current) };
-      }
-      return b;
+      if (b.id !== id) return b;
+
+      // 对 width/height 最小 5；对 x/y 可为任意数（这里也可以 clamp 到 >=0，如果你想）
+      let nextVal;
+      if (key === 'width' || key === 'height') nextVal = clampFloat(rawVal, 5, b[key]);
+      else nextVal = clampFloat(rawVal, -999999, b[key]);
+
+      const nb = { ...b, [key]: nextVal };
+      return { ...nb, grayscale: calculateGrayscale(nb, imgRef.current) };
     }));
   }, [calculateGrayscale]);
+
+  const commitBandLoading = useCallback((id, rawVal) => {
+    setBands(prev => prev.map(b => {
+      if (b.id !== id) return b;
+      const nv = clampFloat(rawVal, 0, b.currentLoading ?? 0);
+      return { ...b, currentLoading: nv };
+    }));
+  }, []);
 
   const syncAllSizes = useCallback(() => {
     const tid = refBandId || (bands.length > 0 ? bands[0].id : null);
@@ -163,10 +242,11 @@ const App = () => {
       if (e.key === 'ArrowDown') ny += step;
       if (e.key === 'ArrowLeft') nx -= step;
       if (e.key === 'ArrowRight') nx += step;
-      updateBandProperty(selectedBandId, 'x', nx);
-      updateBandProperty(selectedBandId, 'y', ny);
+
+      setBands(prev => prev.map(b => b.id === selectedBandId ? { ...b, x: nx, y: ny } : b));
       setIsKeyboardMoving(true);
       renderMagnifier(nx + band.width/2, ny + band.height/2, { ...band, x: nx, y: ny });
+
       if (keyboardTimer.current) clearTimeout(keyboardTimer.current);
       keyboardTimer.current = setTimeout(() => setIsKeyboardMoving(false), 800);
     };
@@ -175,34 +255,44 @@ const App = () => {
       window.removeEventListener('keydown', handleKeyDown);
       if (keyboardTimer.current) clearTimeout(keyboardTimer.current);
     };
-  }, [selectedBandId, bands, updateBandProperty, renderMagnifier]);
+  }, [selectedBandId, bands, renderMagnifier]);
 
   useEffect(() => {
     if (!image || !canvasRef.current || !imgRef.current) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
+
     canvas.width = Math.max(1, imgRef.current.width * totalScale);
     canvas.height = Math.max(1, imgRef.current.height * totalScale);
+
     ctx.save();
     ctx.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
     ctx.scale(totalScale, totalScale);
     ctx.drawImage(imgRef.current, 0, 0);
     ctx.restore();
+
     ctx.save();
     ctx.scale(totalScale, totalScale);
+
     if (showAllBandsOnCanvas) {
       bands.forEach((band) => {
         const isSel = band.id === selectedBandId;
         const isRef = band.id === refBandId;
         const isBg = band.id === bgBandId;
+
         ctx.setLineDash(isBg ? [5, 5] : []);
         ctx.strokeStyle = isSel ? '#3b82f6' : (isBg ? '#f59e0b' : (isRef ? '#10b981' : 'rgba(148, 163, 184, 0.6)'));
         ctx.lineWidth = (isSel || isRef || isBg ? 3 : 1.5) / totalScale;
         ctx.strokeRect(band.x, band.y, band.width, band.height);
+
         ctx.fillStyle = isBg ? 'rgba(245, 158, 11, 0.1)' : (isRef ? 'rgba(16, 185, 129, 0.15)' : (isSel ? 'rgba(59, 130, 246, 0.1)' : 'rgba(148, 163, 184, 0.05)'));
         ctx.fillRect(band.x, band.y, band.width, band.height);
+
         if (isSel) {
-          const hs = 8 / totalScale; ctx.fillStyle = '#fff'; ctx.strokeStyle = '#2563eb'; ctx.setLineDash([]);
+          const hs = 8 / totalScale;
+          ctx.fillStyle = '#fff';
+          ctx.strokeStyle = '#2563eb';
+          ctx.setLineDash([]);
           [[0,0], [band.width, 0], [0, band.height], [band.width, band.height]].forEach(([dx, dy]) => {
             ctx.fillRect(band.x+dx-hs/2, band.y+dy-hs/2, hs, hs);
             ctx.strokeRect(band.x+dx-hs/2, band.y+dy-hs/2, hs, hs);
@@ -210,10 +300,13 @@ const App = () => {
         }
       });
     }
+
     if (currentRect) {
-      ctx.strokeStyle = '#3b82f6'; ctx.setLineDash([5/totalScale, 5/totalScale]);
+      ctx.strokeStyle = '#3b82f6';
+      ctx.setLineDash([5/totalScale, 5/totalScale]);
       ctx.strokeRect(currentRect.x, currentRect.y, currentRect.width, currentRect.height);
     }
+
     ctx.restore();
   }, [image, bands, currentRect, selectedBandId, refBandId, bgBandId, totalScale, showAllBandsOnCanvas, brightness, contrast]);
 
@@ -251,9 +344,20 @@ const App = () => {
   const loadImageData = (dataURL) => {
     const img = new Image();
     img.onload = () => {
-      imgRef.current = img; setImage(dataURL); setBands([]); setZoom(1); setBrightness(100); setContrast(100); setBgBandId(null); setRefBandId(null);
+      imgRef.current = img;
+      setImage(dataURL);
+      setBands([]);
+      setZoom(1);
+      setBrightness(100);
+      setContrast(100);
+      setBgBandId(null);
+      setRefBandId(null);
+      setSelectedBandId(null);
+      setEditMap({});
+
       const dw = canvasRef.current?.parentElement?.clientWidth || 800;
-      setBaseScale(dw / img.width); setIsProcessing(false);
+      setBaseScale(dw / img.width);
+      setIsProcessing(false);
     };
     img.src = dataURL;
   };
@@ -262,12 +366,17 @@ const App = () => {
 
   const handleMouseDown = (e) => {
     if (!image) return;
+
+    // 固定尺寸模式下，如果宽或高被清空（''），就先不允许绘制，避免异常
+    if (isFixedSize && (fixedWidthStr === '' || fixedHeightStr === '')) {
+      setMessage({ type: 'error', text: '固定尺寸：宽度/高度不能为空（可先输入再框选）。' });
+      return;
+    }
+
     const pos = getImagePos(e);
-    
-    // 如果已有选中的框，且不是固定尺寸模式，先探测缩放手柄
+
     if (selectedBandId && !isFixedSize) {
       const band = bands.find(b => b.id === selectedBandId);
-      // 优化点：缩小手柄判定范围，最大不超过宽高的 1/3，确保点击内部不会误触发
       const hLimit = Math.min(8 / totalScale, band.width / 3, band.height / 3);
       const hs = [
         { n: 'tl', x: band.x, y: band.y }, 
@@ -288,19 +397,19 @@ const App = () => {
     const clickedBand = tBands.find(b => pos.x > b.x && pos.x < b.x + b.width && pos.y > b.y && pos.y < b.y + b.height);
     
     if (clickedBand) {
-      // 点击选区内部：执行选中和移动
       setSelectedBandId(clickedBand.id); 
       setInteractionMode('moving');
       setDragStart({ x: pos.x, y: pos.y, bandX: clickedBand.x, bandY: clickedBand.y });
       renderMagnifier(pos.x, pos.y, clickedBand);
     } else {
-      // 点击空白处：执行绘制
       setSelectedBandId(null); 
       setInteractionMode('drawing'); 
       setDragStart({ x: pos.x, y: pos.y });
+
       if (isFixedSize) {
-        const nr = { x: pos.x - fixedWidth/2, y: pos.y - fixedHeight/2, width: fixedWidth, height: fixedHeight };
-        setCurrentRect(nr); renderMagnifier(pos.x, pos.y, nr);
+        const nr = { x: pos.x - fixedWidthNum/2, y: pos.y - fixedHeightNum/2, width: fixedWidthNum, height: fixedHeightNum };
+        setCurrentRect(nr);
+        renderMagnifier(pos.x, pos.y, nr);
       } else {
         setCurrentRect({ x: pos.x, y: pos.y, width: 0, height: 0 });
       }
@@ -310,11 +419,10 @@ const App = () => {
   const handleMouseMove = (e) => {
     const pos = getImagePos(e);
 
-    // 优化点：根据当前位置动态改变鼠标样式，增加交互预判
     if (canvasRef.current && !interactionMode) {
       const isOverBand = bands.some(b => pos.x > b.x && pos.x < b.x + b.width && pos.y > b.y && pos.y < b.y + b.height);
-      
       let cursor = 'crosshair';
+
       if (selectedBandId && !isFixedSize) {
         const band = bands.find(b => b.id === selectedBandId);
         const hLimit = Math.min(8 / totalScale, band.width / 3, band.height / 3);
@@ -322,13 +430,11 @@ const App = () => {
         const onTR = Math.abs(pos.x - (band.x + band.width)) < hLimit && Math.abs(pos.y - band.y) < hLimit;
         const onBL = Math.abs(pos.x - band.x) < hLimit && Math.abs(pos.y - (band.y + band.height)) < hLimit;
         const onBR = Math.abs(pos.x - (band.x + band.width)) < hLimit && Math.abs(pos.y - (band.y + band.height)) < hLimit;
-        
         if (onTL || onBR) cursor = 'nwse-resize';
         else if (onTR || onBL) cursor = 'nesw-resize';
         else if (isOverBand) cursor = 'move';
-      } else if (isOverBand) {
-        cursor = 'move';
-      }
+      } else if (isOverBand) cursor = 'move';
+
       canvasRef.current.style.cursor = cursor;
     }
 
@@ -336,16 +442,22 @@ const App = () => {
 
     if (interactionMode === 'drawing') {
       if (isFixedSize) {
-        const nr = { x: pos.x - fixedWidth/2, y: pos.y - fixedHeight/2, width: fixedWidth, height: fixedHeight };
-        setCurrentRect(nr); renderMagnifier(pos.x, pos.y, nr);
+        if (fixedWidthStr === '' || fixedHeightStr === '') return; // 防守
+        const nr = { x: pos.x - fixedWidthNum/2, y: pos.y - fixedHeightNum/2, width: fixedWidthNum, height: fixedHeightNum };
+        setCurrentRect(nr);
+        renderMagnifier(pos.x, pos.y, nr);
       } else {
         const nr = { x: Math.min(pos.x, dragStart.x), y: Math.min(pos.y, dragStart.y), width: Math.abs(pos.x - dragStart.x), height: Math.abs(pos.y - dragStart.y) };
-        setCurrentRect(nr); renderMagnifier(pos.x, pos.y, nr);
+        setCurrentRect(nr);
+        renderMagnifier(pos.x, pos.y, nr);
       }
     } else if (interactionMode === 'moving') {
       const dx = pos.x - dragStart.x, dy = pos.y - dragStart.y;
-      const ub = { ...bands.find(b => b.id === selectedBandId), x: dragStart.bandX + dx, y: dragStart.bandY + dy };
-      setBands(bands.map(b => b.id === selectedBandId ? ub : b)); renderMagnifier(pos.x, pos.y, ub);
+      const cur = bands.find(b => b.id === selectedBandId);
+      if (!cur) return;
+      const ub = { ...cur, x: dragStart.bandX + dx, y: dragStart.bandY + dy };
+      setBands(bands.map(b => b.id === selectedBandId ? ub : b));
+      renderMagnifier(pos.x, pos.y, ub);
     } else if (interactionMode === 'resizing') {
       const dx = pos.x - dragStart.x, dy = pos.y - dragStart.y;
       let ub;
@@ -356,7 +468,8 @@ const App = () => {
         else if (handle === 'tr') { y += dy; w += dx; h -= dy; }
         else if (handle === 'bl') { x += dx; w -= dx; h += dy; }
         else if (handle === 'br') { w += dx; h += dy; }
-        ub = { ...b, x, y, width: Math.max(5, w), height: Math.max(5, h) }; return ub;
+        ub = { ...b, x, y, width: Math.max(5, w), height: Math.max(5, h) };
+        return ub;
       }));
       renderMagnifier(pos.x, pos.y, ub);
     }
@@ -372,16 +485,37 @@ const App = () => {
     } else if (interactionMode === 'moving' || interactionMode === 'resizing') {
       setBands(bands.map(b => b.id === selectedBandId ? { ...b, grayscale: calculateGrayscale(b, imgRef.current) } : b));
     }
-    setInteractionMode(null); setCurrentRect(null);
+    setInteractionMode(null);
+    setCurrentRect(null);
   };
 
   const getSuggestedLoading = (band) => {
     if (band.id === bgBandId) return "背景项";
     const curNet = getNetIntensity(band.grayscale);
-    let targetNet = calculationMode === 'reference' ? getNetIntensity(bands.find(b => b.id === refBandId)?.grayscale || backgroundGray) : customTargetNetIntensity;
+    let targetNet = calculationMode === 'reference'
+      ? getNetIntensity(bands.find(b => b.id === refBandId)?.grayscale || backgroundGray)
+      : customTargetNetIntensity;
     if (curNet <= 0.5) return "信号极弱";
     const res = band.currentLoading * (targetNet / curNet);
     return isFinite(res) ? res.toFixed(2) : "0.00";
+  };
+
+  // --- UI helper: 读写 editMap ---
+  const getEdit = (id, field, fallback) => {
+    const k = `${id}:${field}`;
+    return Object.prototype.hasOwnProperty.call(editMap, k) ? editMap[k] : fallback;
+  };
+  const setEdit = (id, field, val) => {
+    const k = `${id}:${field}`;
+    setEditMap(prev => ({ ...prev, [k]: val }));
+  };
+  const clearEdit = (id, field) => {
+    const k = `${id}:${field}`;
+    setEditMap(prev => {
+      const n = { ...prev };
+      delete n[k];
+      return n;
+    });
   };
 
   return (
@@ -421,7 +555,7 @@ const App = () => {
               <Upload size={18} /> 上传图片
               <input type="file" className="hidden" onChange={handleImageUpload} accept="image/*,.tif,.tiff" />
             </label>
-            <button onClick={() => {setBands([]); setImage(null); setBgBandId(null); setSelectedBandId(null);}} className="p-3 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 transition-colors shadow-sm"><RefreshCw size={18} className="text-slate-400"/></button>
+            <button onClick={() => {setBands([]); setImage(null); setBgBandId(null); setSelectedBandId(null); setEditMap({});}} className="p-3 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 transition-colors shadow-sm"><RefreshCw size={18} className="text-slate-400"/></button>
           </div>
         </header>
 
@@ -454,7 +588,7 @@ const App = () => {
                     <div className="bg-slate-900 p-1.5 rounded-2xl shadow-2xl border-4 border-white/20 overflow-hidden">
                       <canvas ref={magnifierRef} className="bg-black" />
                       <div className="flex items-center justify-center gap-2 text-[9px] text-white font-black uppercase py-1 tracking-widest bg-blue-600">
-                          校准视野 (2x)
+                          校准视野 (自适应)
                       </div>
                     </div>
                   </div>
@@ -520,18 +654,24 @@ const App = () => {
                   <div className="flex items-center gap-2">
                     <span className="text-[9px] font-black text-slate-400 uppercase">宽度</span>
                     <input 
-                      type="number" 
-                      value={fixedWidth} 
-                      onChange={e => setFixedWidth(Math.max(5, parseInt(e.target.value) || 0))}
+                      type="text"
+                      inputMode="numeric"
+                      value={fixedWidthStr}
+                      onWheel={(e) => e.preventDefault()} // ✅ 修复 #2
+                      onChange={e => setFixedWidthStr(onlyInt(e.target.value))}
+                      onBlur={() => setFixedWidthStr(String(clampInt(fixedWidthStr, 5, 80)))} // ✅ 修复 #3：失焦才 clamp
                       className="w-16 bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-indigo-600 outline-none focus:ring-2 focus:ring-indigo-100" 
                     />
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-[9px] font-black text-slate-400 uppercase">高度</span>
                     <input 
-                      type="number" 
-                      value={fixedHeight} 
-                      onChange={e => setFixedHeight(Math.max(5, parseInt(e.target.value) || 0))}
+                      type="text"
+                      inputMode="numeric"
+                      value={fixedHeightStr}
+                      onWheel={(e) => e.preventDefault()} // ✅ 修复 #2
+                      onChange={e => setFixedHeightStr(onlyInt(e.target.value))}
+                      onBlur={() => setFixedHeightStr(String(clampInt(fixedHeightStr, 5, 30)))} // ✅ 修复 #3
                       className="w-16 bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-indigo-600 outline-none focus:ring-2 focus:ring-indigo-100" 
                     />
                   </div>
@@ -548,7 +688,7 @@ const App = () => {
                 </div>
               )}
               
-              <div className="overflow-y-auto p-6 pb=40 space-y-4 custom-scrollbar flex-1 bg-white">
+              <div className="overflow-y-auto p-6 space-y-4 custom-scrollbar flex-1 bg-white">
                 {bands.length === 0 ? (
                   <div className="py-24 text-center space-y-6 opacity-30 font-sans">
                     <Plus size={64} className="mx-auto" />
@@ -559,6 +699,7 @@ const App = () => {
                     const isRef = band.id === refBandId;
                     const isSel = band.id === selectedBandId;
                     const isBg = band.id === bgBandId;
+
                     return (
                       <div key={band.id} onClick={() => setSelectedBandId(band.id)} className={`p-5 rounded-[32px] border transition-all cursor-pointer group relative ${isSel ? 'border-blue-500 ring-[8px] ring-blue-50 bg-white shadow-xl -translate-y-1' : (isBg ? 'bg-amber-50/50 border-amber-200' : (isRef ? 'bg-emerald-50/40 border-emerald-100' : 'bg-slate-50/50 border-slate-100 hover:border-slate-300'))}`}>
                         <div className="flex justify-between items-start mb-4">
@@ -579,25 +720,72 @@ const App = () => {
                             <button onClick={(e) => {e.stopPropagation(); setBands(bands.filter(b => b.id !== band.id)); if(isSel) setSelectedBandId(null);}} className="text-slate-300 hover:text-rose-500 p-2 hover:bg-rose-50 rounded-xl transition-all"><Trash2 size={16}/></button>
                           </div>
                         </div>
+
                         {isSel && (
                           <div className="mb-4 p-3 bg-indigo-50/50 rounded-2xl border border-indigo-100 flex flex-col gap-2 shadow-inner">
                              <div className="grid grid-cols-4 gap-2 text-center">
-                                {['x', 'y', 'width', 'height'].map(k => (
-                                  <div key={k} className="space-y-1">
-                                     <label className="text-[8px] font-bold text-slate-400 block uppercase italic">{k === 'width' ? '宽' : k === 'height' ? '高' : k}</label>
-                                     <input type="number" value={Math.round(band[k])} onChange={e => updateBandProperty(band.id, k, e.target.value)} className="w-full bg-white border-none rounded-lg px-1 py-1 text-[10px] font-mono font-bold shadow-sm outline-none text-center" />
-                                  </div>
-                                ))}
+                                {['x', 'y', 'width', 'height'].map(k => {
+                                  const fallback = String(Math.round(band[k]));
+                                  const v = getEdit(band.id, k, fallback);
+
+                                  return (
+                                    <div key={k} className="space-y-1">
+                                      <label className="text-[8px] font-bold text-slate-400 block uppercase italic">
+                                        {k === 'width' ? '宽' : k === 'height' ? '高' : k}
+                                      </label>
+                                      <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={v}
+                                        onWheel={(e) => e.preventDefault()} // ✅ 修复 #2
+                                        onChange={(e) => setEdit(band.id, k, onlyInt(e.target.value))} // ✅ 允许清空
+                                        onBlur={() => {
+                                          // ✅ 修复 #3：失焦再提交与 clamp
+                                          const cur = getEdit(band.id, k, fallback);
+                                          const committed =
+                                            (k === 'width' || k === 'height')
+                                              ? String(clampInt(cur, 5, Math.round(band[k])))
+                                              : String(clampInt(cur, -999999, Math.round(band[k])));
+                                          clearEdit(band.id, k);
+                                          commitBandProperty(band.id, k, committed);
+                                        }}
+                                        className="w-full bg-white border-none rounded-lg px-1 py-1 text-[10px] font-mono font-bold shadow-sm outline-none text-center"
+                                      />
+                                    </div>
+                                  );
+                                })}
                              </div>
                           </div>
                         )}
+
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-400 uppercase ml-1 tracking-tight">本次上样 (微升)</label>
-                            <input type="number" value={band.currentLoading} onClick={e => e.stopPropagation()} onChange={e => setBands(bands.map(b => b.id === band.id ? {...b, currentLoading: parseFloat(e.target.value)||0} : b))} className="w-full text-sm font-mono font-bold bg-white border border-slate-200 rounded-2xl px-4 py-2.5 focus:ring-4 focus:ring-blue-50 outline-none transition-all" />
+                            <label className="text-[9px] font-black text-slate-400 uppercase ml-1 tracking-tight">本次上样 (μL)</label>
+                            {(() => {
+                              const key = 'loading';
+                              const fallback = String(band.currentLoading ?? 0);
+                              const v = getEdit(band.id, key, fallback);
+                              return (
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={v}
+                                  onWheel={(e) => e.preventDefault()} // ✅ 修复 #2
+                                  onClick={e => e.stopPropagation()}
+                                  onChange={(e) => setEdit(band.id, key, onlyFloat(e.target.value))} // ✅ 允许清空/小数
+                                  onBlur={() => {
+                                    const cur = getEdit(band.id, key, fallback);
+                                    const committed = String(clampFloat(cur, 0, band.currentLoading ?? 0));
+                                    clearEdit(band.id, key);
+                                    commitBandLoading(band.id, committed);
+                                  }}
+                                  className="w-full text-sm font-mono font-bold bg-white border border-slate-200 rounded-2xl px-4 py-2.5 focus:ring-4 focus:ring-blue-50 outline-none transition-all"
+                                />
+                              );
+                            })()}
                           </div>
                           <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-blue-500 uppercase ml-1 tracking-tight">建议下回 (微升)</label>
+                            <label className="text-[9px] font-black text-blue-500 uppercase ml-1 tracking-tight">建议下回 (μL)</label>
                             <div className="bg-blue-600 text-white rounded-2xl px-4 py-2.5 text-sm font-mono font-black text-center shadow-lg shadow-blue-100 flex items-center justify-center gap-1">
                               {getSuggestedLoading(band)}
                             </div>
@@ -610,7 +798,7 @@ const App = () => {
               </div>
               
               {bands.length > 0 && (
-                <div className="sticky bottom-0 z-20 p-8 border-t border-slate-100 bg-slate-50/95 space-y-4">
+                <div className="p-8 border-t border-slate-100 bg-slate-50/50 space-y-4">
                     <div className="grid grid-cols-2 gap-3">
                        <button onClick={() => setCalculationMode('reference')} className={`py-4 rounded-2xl text-[11px] font-black uppercase transition-all shadow-sm ${calculationMode === 'reference' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>基准模式</button>
                        <button onClick={() => setCalculationMode('custom')} className={`py-4 rounded-2xl text-[11px] font-black uppercase transition-all shadow-sm ${calculationMode === 'custom' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>定值模式</button>
@@ -620,7 +808,9 @@ const App = () => {
                     </button>
                     <button onClick={() => {
                       const ch = "样品序号,净强度(扣背景),本次上样(微升),计算目标,建议下次上样(微升)\n";
-                      const tv = calculationMode === 'reference' ? getNetIntensity(bands.find(b => b.id === refBandId)?.grayscale || backgroundGray) : customTargetNetIntensity;
+                      const tv = calculationMode === 'reference'
+                        ? getNetIntensity(bands.find(b => b.id === refBandId)?.grayscale || backgroundGray)
+                        : customTargetNetIntensity;
                       const rows = bands.map((b,i)=>`${i+1},${getNetIntensity(b.grayscale).toFixed(2)},${b.currentLoading},${tv.toFixed(2)},${getSuggestedLoading(b)}`).join("\n"); 
                       const blob = new Blob(["\ufeff" + ch + rows], { type: 'text/csv;charset=utf-8;' });
                       const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `WB定量报告_${new Date().toLocaleDateString()}.csv`; link.click();
@@ -630,6 +820,7 @@ const App = () => {
                 </div>
               )}
             </div>
+
             <footer className="mt-6 mb-8 text-center text-slate-400 text-[10px] uppercase tracking-[0.4em] font-bold animate-pulse">
               All Rights Reserved by zhangshuang
             </footer>
