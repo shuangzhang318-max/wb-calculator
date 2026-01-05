@@ -297,13 +297,43 @@ const App = () => {
       <div className="max-w-[1600px] mx-auto">
         <header className="mb-8 flex flex-col gap-6">
           <div className="flex justify-between items-center">
-            <div className="flex items-center gap-5">
-              <div className="bg-slate-900 p-4 rounded-3xl text-white shadow-2xl"><Layers size={36} /></div>
-              <div>
-                <h1 className="text-3xl font-black text-slate-900 tracking-tight">WB 蛋白定量助手 <span className="text-indigo-600 font-black">Pro Max</span></h1>
-                <p className="text-xs font-black text-slate-400 uppercase tracking-[0.3em] font-mono mt-1 italic">Scientific IntDen Calibration Tool</p>
-              </div>
-            </div>
+            <div>
+  {/* 把 h1 改成“标题 + 首页按钮”同行 */}
+  <div className="flex items-center gap-4">
+    <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+      WB 蛋白定量助手 <span className="text-indigo-600 font-black">Pro Max</span>
+    </h1>
+
+    {/* 首页按钮 */}
+    <a
+      href="https://cyanhelix.unwedomain.xyz"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="
+  bg-indigo-600
+  hover:bg-indigo-700
+  text-white
+  border border-indigo-600
+  px-5 py-2
+  rounded-xl
+  font-bold
+  text-sm
+  shadow-md
+  hover:shadow-lg
+  transition-all duration-200
+"
+
+      title="打开首页"
+    >
+      回到首页
+    </a>
+  </div>
+
+  <p className="text-xs font-black text-slate-400 uppercase tracking-[0.3em] font-mono mt-1 italic">
+    Scientific IntDen Calibration Tool
+  </p>
+</div>
+
             <div className="flex items-center gap-4">
               <label className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3.5 rounded-2xl cursor-pointer flex items-center gap-3 transition-all shadow-xl font-black text-base">
                 <Upload size={22} /> {isProcessing ? "处理中..." : "上传图像"}
