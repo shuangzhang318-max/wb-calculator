@@ -1,16 +1,192 @@
-# React + Vite
+# WB Calculator
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+一个面向实验工作流的浏览器端 Western blot 条带定量工具。
 
-Currently, two official plugins are available:
+它适合在单张 WB 图像上完成以下操作：
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- 手工绘制 ROI
+- 自动把第 1 个 ROI 设为背景、第 2 个 ROI 设为基准
+- 查看净强度、饱和比例与风险等级
+- 根据当前结果给出下一次上样量建议
+- 导出 CSV 定量结果
 
-## React Compiler
+当前版本强调“本地、可视、半自动辅助定量”，适合做实验过程中的快速判断与复核，不建议把结果直接视为仪器原生分析软件的完全替代。
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 主要功能
 
-## Expanding the ESLint configuration
+### 图像与数据
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- 支持 `PNG / JPG / JPEG / TIFF / TIF`
+- 常见 `8-bit / 16-bit TIFF` 优先走原始像素积分链路
+- 亮度 / 对比度只影响显示，不影响定量结果
+- 所有处理都在本地浏览器完成，不依赖后端上传
+
+### ROI 工作流
+
+- 鼠标绘制新 ROI
+- 默认固定尺寸选框，可关闭后自由拉伸
+- 方向键微调 ROI，`Shift + 方向键` 快速移动
+- `Backspace` 删除当前选中 ROI
+- 点击画板外区域时，放大镜自动隐藏
+- 重新点击画板或继续交互时，放大镜自动恢复
+
+### 默认角色规则
+
+上传图片后或点击“重置”后重新开始时：
+
+- 第 1 个 ROI：自动设为背景
+- 第 2 个 ROI：自动设为基准
+- 第 3 个及以后：按普通样品处理
+
+你仍然可以在 `ROI 列表` 标题区域手动切换：
+
+- `设为背景 / 取消背景`
+- `设为基准 / 取消基准`
+
+### 定量与提示
+
+- 支持 `暗带` / `亮带` 两种信号极性
+- 支持 `基准模式` 与 `定值模式`
+- 显示净强度、饱和像素数、饱和比例、风险等级
+- 风险等级分为：`无风险 / 可接受 / 需谨慎 / 不建议严格定量`
+- 可导出带样品名称、强度、建议上样量的 CSV 报告
+
+### 饱和像素与定量精确度
+
+饱和像素数和饱和比例会直接影响条带积分结果的可信度。
+
+- 当条带信号端出现饱和时，像素值已经贴到上限或下限
+- 这部分真实强度差异会被“压平”，积分结果不再线性
+- 饱和像素越多、饱和比例越高，ROI 的净强度越容易被低估或失真
+- 因此即使两个 ROI 的积分值还能比较，比较结果的精确度也会下降
+
+可以这样理解：
+
+- `饱和像素数` 反映有多少像素已经失去真实动态范围
+- `饱和比例` 反映这种失真在整个 ROI 中占了多大比例
+
+在实验判断上通常意味着：
+
+- 比例接近 `0%`：结果通常更接近真实线性区间
+- 比例轻度升高：可做参考，但精确比较要更谨慎
+- 比例明显升高：样品间倍数关系可能被压缩，不适合做严格定量
+
+如果你追求更高精确度，优先建议：
+
+- 重新采集不过曝的原始图像
+- 缩短曝光或降低信号强度
+- 让 ROI 更贴近条带本体，避免无关区域稀释判断
+
+## 当前界面布局
+
+### 左侧工作区
+
+左侧为图像工作台，顶部工具条包含：
+
+- 缩放
+- 亮度
+- 对比度
+- 上传图像
+- 重置
+- 操作指南入口
+
+### 右侧工作区
+
+右侧为定量面板，包含：
+
+- 定量控制
+- ROI 列表
+- ROI 详情
+- 导出与面积同步操作
+
+当前界面已做过一轮以“减少纵向占用、提升首屏可见区域”为目标的整理：
+
+- 顶部步骤条更短
+- 定量设置更紧凑
+- ROI 列表更宽
+- ROI 详情更窄、更聚焦
+- 左右主面板高度尽量保持齐平
+
+## 适用场景
+
+适合：
+
+- 单张 WB 图像的快速 densitometry 辅助分析
+- 比较样品间相对表达变化
+- 估算下一次实验的上样量
+- 对本地原始 TIFF 或实验截图做可视化定量辅助
+
+不适合直接作为：
+
+- 仪器原生软件的严格替代
+- 已发表 figure 的“原始定量恢复”工具
+- 多曝光线性校正后的最终绝对定量结论来源
+
+## 本地启动
+
+### 环境建议
+
+- Node.js `20` 或 `22` LTS
+- npm `10+`
+
+### 安装依赖
+
+```bash
+cd /Users/zhangshuang/Documents/codex/wb-calculator
+npm install
+```
+
+### 启动开发环境
+
+```bash
+npm run dev
+```
+
+可选：
+
+```bash
+npm run dev -- --open
+```
+
+默认开发地址通常类似：
+
+- `http://localhost:5173`
+
+### 构建生产版本
+
+```bash
+npm run build
+npm run preview
+```
+
+## 文档
+
+- 总体说明：`/Users/zhangshuang/Documents/codex/wb-calculator/README.md`
+- 操作指南：`/Users/zhangshuang/Documents/codex/wb-calculator/docs/operation-guide-zh.md`
+- 旧版使用说明：`/Users/zhangshuang/Documents/codex/wb-calculator/docs/usage-guide-zh.md`
+- 架构拆分计划：`/Users/zhangshuang/Documents/codex/wb-calculator/docs/app-split-plan-zh.md`
+- 改造设计：`/Users/zhangshuang/Documents/codex/wb-calculator/docs/refactor-design-zh.md`
+
+运行中的应用里也可通过左侧图像面板右上角的“操作指南”按钮直接打开指南页面。
+
+## 已知限制
+
+- 当前背景模式仍以单个全局背景 ROI 为主
+- 特殊 TIFF 编码可能回退到预览图积分路径
+- 尚未实现多曝光融合、标准曲线校正、自动泳道识别
+- 尚未实现工程保存 / 恢复
+
+## 隐私与数据
+
+- 图像处理在本地浏览器完成
+- 当前版本不会把图片上传到后端分析
+- 导出结果为本地 CSV 文件
+
+## 下一步建议
+
+如果继续迭代，建议优先考虑：
+
+1. 局部背景模式与多背景 ROI
+2. 更表格化的 ROI 列表模式
+3. 计算核心函数测试覆盖
+4. 方法学说明与实验注意事项页面
