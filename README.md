@@ -1,5 +1,6 @@
 # WB Calculator  一个面向实验工作流的浏览器端 Western blot 条带定量工具。
 
+<img width="3666" height="2036" alt="image" src="https://github.com/user-attachments/assets/b9788eab-3176-4308-a605-9ebdc4ad392f" />
 
 ###主要更新
 
