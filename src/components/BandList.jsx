@@ -37,6 +37,7 @@ const BandList = ({
   onLoadingChange,
   onSyncBandSize,
   onExport,
+  t,
 }) => {
   const selectedBandIndex = useMemo(
     () => bands.findIndex((band) => band.id === selectedBandId),
@@ -51,23 +52,23 @@ const BandList = ({
       <div className="border-b border-slate-200 px-4 py-2.5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">ROI 列表</div>
+            <div className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">{t.roiList}</div>
             <div className="mt-1 flex flex-wrap items-center gap-2">
-              <span className="text-sm font-black text-slate-800">{bands.length} 个选区</span>
+              <span className="text-sm font-black text-slate-800">{t.regions(bands.length)}</span>
               {selectedBand && (
                 <>
                   <button
                     onClick={() => onToggleBackground(selectedBand.id)}
                     className={`${actionButtonClass} ${selectedIsBackground ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-slate-200 bg-white text-slate-600 hover:border-amber-200 hover:text-amber-700'}`}
                   >
-                    <Eraser size={12} /> {selectedIsBackground ? '取消背景' : '设为背景'}
+                    <Eraser size={12} /> {selectedIsBackground ? t.clearBackground : t.setBackground}
                   </button>
                   {!selectedIsBackground && (
                     <button
                       onClick={() => onSetReference(selectedBand.id)}
                       className={`${actionButtonClass} ${selectedIsReference ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:text-indigo-700'}`}
                     >
-                      <Target size={12} /> {selectedIsReference ? '取消基准' : '设为基准'}
+                      <Target size={12} /> {selectedIsReference ? t.clearReference : t.setReference}
                     </button>
                   )}
                 </>
@@ -79,13 +80,13 @@ const BandList = ({
               onClick={onSyncBandSize}
               className="flex items-center gap-2 rounded-2xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-[11px] font-black uppercase text-indigo-700 transition-all hover:bg-indigo-100"
             >
-              <Maximize2 size={14} /> 同步面积
+              <Maximize2 size={14} /> {t.syncArea}
             </button>
             <button
               onClick={onExport}
               className="flex items-center gap-2 rounded-2xl bg-indigo-600 px-3 py-2 text-[11px] font-black uppercase text-white transition-all hover:bg-indigo-700"
             >
-              <Download size={14} /> 导出
+              <Download size={14} /> {t.export}
             </button>
           </div>
         </div>
@@ -95,9 +96,9 @@ const BandList = ({
         <div className="min-h-0 overflow-y-auto rounded-[24px] border border-slate-200 bg-white p-2.5 custom-scrollbar">
           {bands.length === 0 ? (
             <div className="rounded-[20px] border border-dashed border-slate-200 bg-white px-5 py-12 text-center text-xs font-black uppercase tracking-[0.25em] text-slate-300">
-              No Protein Detected
+              {t.noProtein}
               <br />
-              Select Bands to Start Quantification
+              {t.selectBands}
             </div>
           ) : (
             <div className="space-y-2">
@@ -134,21 +135,21 @@ const BandList = ({
                   >
                     <div className="flex items-center gap-2">
                       <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${roleBadgeClasses[roleKey]}`}>
-                        {isBackground ? '背景' : (isReference ? '基准' : `样品 ${index + 1}`)}
+                        {isBackground ? t.background : (isReference ? t.referenceRole : t.sample(index + 1))}
                       </span>
                       <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${riskBadgeClasses[saturationRisk.tone]}`}>
-                        {saturationRisk.level}
+                        {t.risk(saturationRisk.level)}
                       </span>
-                      {bandWarning && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-black text-amber-700">需检查</span>}
+                      {bandWarning && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-black text-amber-700">{t.check}</span>}
                       <span className="ml-auto text-[10px] font-black text-slate-300">ROI {index + 1}</span>
                     </div>
 
                     <div className="mt-2.5 grid grid-cols-[minmax(118px,132px)_92px] gap-2 items-end">
                       <label className="min-w-0">
-                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">名称</div>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t.name}</div>
                         <input
                           type="text"
-                          value={isBackground ? '背景' : (band.name || '')}
+                          value={isBackground ? t.background : (band.name || '')}
                           onClick={(event) => event.stopPropagation()}
                           onChange={(event) => onNameChange(band.id, event.target.value)}
                           placeholder={getDefaultBandLabel(band, index)}
@@ -157,7 +158,7 @@ const BandList = ({
                         />
                       </label>
                       <div>
-                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">强度</div>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t.intensity}</div>
                         <div className={`mt-1 rounded-xl border border-slate-200 bg-slate-50 px-2 py-1.5 text-right text-sm font-mono font-black ${netIntensity <= 0 && !isBackground ? 'text-amber-600' : 'text-slate-900'}`}>
                           {netIntensity.toFixed(0)}
                         </div>
@@ -166,7 +167,7 @@ const BandList = ({
 
                     <div className="mt-2 grid grid-cols-[84px_112px] gap-2 items-end justify-start">
                       <label>
-                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">上样 uL</div>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t.loading}</div>
                         <input
                           type="text"
                           value={isBackground ? '' : band.currentLoading}
@@ -178,7 +179,7 @@ const BandList = ({
                         />
                       </label>
                       <div>
-                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">建议下次</div>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t.suggested}</div>
                         <div className={`mt-1 rounded-xl border px-2 py-1.5 text-center text-sm font-mono font-black ${bandWarning ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-indigo-200 bg-indigo-50 text-indigo-700'}`}>
                           {suggestedLoading}
                         </div>
@@ -199,6 +200,7 @@ const BandList = ({
               bgBandId={bgBandId}
               refBandId={refBandId}
               calculationMode={calculationMode}
+                  t={t}
               signalPolarity={signalPolarity}
               getBandLabel={getBandLabel}
               getNetIntensity={getNetIntensity}
@@ -206,7 +208,7 @@ const BandList = ({
             />
           ) : (
             <div className="flex h-full min-h-[180px] items-center justify-center rounded-[18px] border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-center text-xs font-bold text-slate-400">
-              点击左侧 ROI 查看详情。
+              {t.clickRoi}
             </div>
           )}
         </div>

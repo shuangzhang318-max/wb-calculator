@@ -20,50 +20,51 @@ const QuantPanel = ({
   onFixedHeightChange,
   bgBandId,
   refBandId,
+  t,
 }) => (
   <>
     <div className="border-b border-slate-200 bg-slate-50/80 px-5 py-3.5">
-      <h2 className="text-base font-black uppercase tracking-tight text-slate-800">定量控制</h2>
-      <p className="mt-0.5 text-[10px] font-bold text-slate-400">全局参数</p>
+      <h2 className="text-base font-black uppercase tracking-tight text-slate-800">{t.quantControls}</h2>
+      <p className="mt-0.5 text-[10px] font-bold text-slate-400">{t.globalSettings}</p>
     </div>
 
     <div className="space-y-2.5 border-b border-slate-200 bg-slate-50/40 px-5 py-3">
       <div className="grid gap-2.5 xl:grid-cols-[1.05fr_1fr_0.92fr]">
         <div className={cardClass}>
-          <div className={labelClass}>计算模式</div>
+          <div className={labelClass}>{t.calculationMode}</div>
           <div className="mt-2 grid grid-cols-2 gap-2">
             <button
               onClick={() => onCalculationModeChange('reference')}
               className={`rounded-xl py-2 text-[10px] font-black uppercase transition-all ${calculationMode === 'reference' ? 'bg-indigo-600 text-white' : 'border border-slate-200 bg-slate-50 text-slate-500'}`}
             >
-              基准
+              {t.reference}
             </button>
             <button
               onClick={() => onCalculationModeChange('custom')}
               className={`rounded-xl py-2 text-[10px] font-black uppercase transition-all ${calculationMode === 'custom' ? 'bg-indigo-600 text-white' : 'border border-slate-200 bg-slate-50 text-slate-500'}`}
             >
-              定值
+              {t.fixedValue}
             </button>
           </div>
         </div>
 
         <div className={cardClass}>
           <div className="flex items-center justify-between gap-2">
-            <span className={labelClass}>信号极性</span>
-            <span className="text-[10px] font-black text-indigo-600">{signalPolarity === 'dark-on-light' ? '暗带' : '亮带'}</span>
+            <span className={labelClass}>{t.signalPolarity}</span>
+            <span className="text-[10px] font-black text-indigo-600">{signalPolarity === 'dark-on-light' ? t.darkBand : t.lightBand}</span>
           </div>
           <div className="mt-2 grid grid-cols-2 gap-2">
             <button
               onClick={() => onSignalPolarityChange('dark-on-light')}
               className={`rounded-xl py-2 text-[10px] font-black uppercase transition-all ${signalPolarity === 'dark-on-light' ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-slate-50 text-slate-500'}`}
             >
-              暗带
+              {t.darkBand}
             </button>
             <button
               onClick={() => onSignalPolarityChange('light-on-dark')}
               className={`rounded-xl py-2 text-[10px] font-black uppercase transition-all ${signalPolarity === 'light-on-dark' ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-slate-50 text-slate-500'}`}
             >
-              亮带
+              {t.lightBand}
             </button>
           </div>
         </div>
@@ -77,7 +78,7 @@ const QuantPanel = ({
                 onChange={(e) => onFixedSizeChange(e.target.checked)}
                 className="h-4 w-4 rounded text-indigo-600 focus:ring-0 shadow-inner"
               />
-              <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">固定尺寸</span>
+              <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">{t.fixedSize}</span>
             </label>
             <span className="text-[10px] font-black text-slate-400">px</span>
           </div>
@@ -87,7 +88,7 @@ const QuantPanel = ({
               value={fixedWidthStr}
               onChange={(e) => onFixedWidthChange(e.target.value)}
               disabled={!isFixedSize}
-              placeholder="宽"
+              placeholder={t.width}
               className={`w-full rounded-xl border p-2 text-center text-[11px] font-black shadow-inner outline-none ${isFixedSize ? 'border-slate-200 bg-white focus:border-indigo-500' : 'border-slate-200 bg-slate-100 text-slate-400'}`}
             />
             <input
@@ -95,7 +96,7 @@ const QuantPanel = ({
               value={fixedHeightStr}
               onChange={(e) => onFixedHeightChange(e.target.value)}
               disabled={!isFixedSize}
-              placeholder="高"
+              placeholder={t.height}
               className={`w-full rounded-xl border p-2 text-center text-[11px] font-black shadow-inner outline-none ${isFixedSize ? 'border-slate-200 bg-white focus:border-indigo-500' : 'border-slate-200 bg-slate-100 text-slate-400'}`}
             />
           </div>
@@ -124,18 +125,18 @@ const QuantPanel = ({
         <div className="space-y-1.5">
           {hasNonPositiveSignal && (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-700">
-              部分 ROI 净强度 ≤ 0，请检查背景或极性。
+              {t.nonPositive}
             </div>
           )}
           {imageQuantData?.kind === 'tiff-raw' && (
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-bold text-emerald-700">
-              TIFF 原始定量已启用（{imageQuantData.bitDepth}-bit）。
+              {t.rawTiff(imageQuantData.bitDepth)}
             </div>
           )}
           {(!bgBandId || (calculationMode === 'reference' && !refBandId)) && (
             <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-3 py-2 text-[11px] font-bold text-slate-500">
-              {!bgBandId ? '请先指定背景区域；' : ''}
-              {calculationMode === 'reference' && !refBandId ? '参考模式下还需要指定基准样品。' : ''}
+              {!bgBandId ? t.setBackgroundFirst : ''}
+              {calculationMode === 'reference' && !refBandId ? t.setReferenceFirst : ''}
             </div>
           )}
         </div>

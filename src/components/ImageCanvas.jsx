@@ -28,6 +28,7 @@ const ImageCanvas = ({
   onResetWorkspace,
   selectedBandId,
   showMagnifier,
+  t,
 }) => (
   <div ref={canvasShellRef} className="relative flex h-[calc(100vh-12rem)] min-h-[560px] max-h-[calc(100vh-4rem)] flex-col overflow-hidden rounded-[40px] border border-slate-200 bg-white shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
     <div className="z-10 flex items-center justify-between border-b border-slate-200 bg-slate-50/90 px-5 py-3 backdrop-blur-md">
@@ -65,7 +66,7 @@ const ImageCanvas = ({
 
         <label className="flex cursor-pointer items-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2 text-[11px] font-black text-white shadow-lg shadow-indigo-100 transition-all hover:bg-indigo-700">
           <Upload size={15} />
-          {isProcessing ? '处理中...' : '上传图像'}
+          {isProcessing ? t.processing : t.upload}
           <input type="file" className="hidden" onChange={onUploadImage} accept="image/*,.tif,.tiff" />
         </label>
 
@@ -73,17 +74,17 @@ const ImageCanvas = ({
           onClick={onResetWorkspace}
           className={`${toolbarButtonClass} px-3.5 text-slate-600 hover:border-indigo-200 hover:text-indigo-600`}
         >
-          <RefreshCw size={15} /> 重置
+          <RefreshCw size={15} /> {t.reset}
         </button>
       </div>
 
       <a
-        href="/operation-guide.html"
+        href={t.guideUrl}
         target="_blank"
         rel="noreferrer"
         className={`${toolbarButtonClass} text-slate-600 hover:border-indigo-200 hover:text-indigo-600`}
       >
-        <BookOpen size={15} /> 操作指南
+        <BookOpen size={15} /> {t.guide}
       </a>
     </div>
 

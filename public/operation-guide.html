@@ -91,6 +91,10 @@
         text-decoration: none;
         font-weight: 700;
       }
+      .language-switcher { display: inline-flex; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+      .language-button { border: 0; border-right: 1px solid var(--line); padding: 8px 10px; background: #fff; color: var(--muted); font-weight: 800; cursor: pointer; }
+      .language-button:last-child { border-right: 0; }
+      .language-button[aria-pressed="true"] { background: var(--primary); color: #fff; }
       @media (max-width: 760px) {
         .wrap { padding: 24px 14px 48px; }
         .grid { grid-template-columns: 1fr; }
@@ -107,7 +111,7 @@
           <div class="eyebrow">Operation Guide</div>
           <h1>WB Calculator 操作指南</h1>
         </div>
-        <a class="back" href="/">返回工具</a>
+        <div style="display:flex; gap:10px; align-items:center;"><div class="language-switcher" role="group" aria-label="Language selector"><button class="language-button" type="button" data-language="zh" aria-pressed="true">中文</button><button class="language-button" type="button" data-language="en" aria-pressed="false">EN</button></div><a class="back" href="/">返回工具</a></div>
       </div>
 
       <div class="hero">
@@ -174,5 +178,27 @@
         <p>实际使用中，若比例明显升高，优先建议重新采图、缩短曝光或降低信号强度，而不是只调整显示亮度 / 对比度。</p>
       </div>
     </div>
+    <script>
+      const guideLanguage = new URLSearchParams(location.search).get('lang') === 'en' || localStorage.getItem('wb-calculator-language') === 'en' ? 'en' : 'zh';
+      const guideBody = document.querySelector('.wrap');
+      const englishGuide = `
+        <div class="topbar"><div><div class="eyebrow">Operation Guide</div><h1>Western Blot Quantification Guide</h1></div><div style="display:flex; gap:10px; align-items:center;"><div class="language-switcher" role="group" aria-label="Language selector"><button class="language-button" type="button" data-language="zh">中文</button><button class="language-button" type="button" data-language="en" aria-pressed="true">EN</button></div><a class="back" href="/?lang=en">Back to tool</a></div></div>
+        <div class="hero"><p>This browser-based tool quantifies regions of interest (ROIs) on a single Western blot image. It supports background selection, reference-band normalization, intensity comparison, saturation review, and CSV export without uploading data to a server.</p><div class="grid"><div class="card"><strong>Default workflow</strong>The first ROI becomes the background; the second becomes the reference band.</div><div class="card"><strong>Display controls</strong>Brightness and contrast affect display only, never the calculated intensity.</div><div class="card"><strong>Magnifier</strong>The magnifier hides outside the canvas and returns during canvas interaction.</div><div class="card"><strong>Data privacy</strong>All analysis runs locally in the browser.</div></div></div>
+        <div class="section"><h2>Recommended workflow</h2><h3>1. Upload an image</h3><p>Select <strong>Upload image</strong> above the left workspace. PNG, JPG, JPEG, TIF, and TIFF files are supported.</p><h3>2. Select signal polarity</h3><p>Under <strong>Quantification Controls</strong>, select <code>Dark band</code> or <code>Light band</code>. Most conventional chemiluminescent Western blots use dark bands on a light background.</p><h3>3. Draw the background ROI</h3><p>The first ROI is assigned as background by default. Choose an uncontaminated, uniform area close to the bands.</p><h3>4. Draw the reference ROI</h3><p>The second ROI is assigned as the reference by default. Select a stable, representative loading-control or experimental-control band.</p><h3>5. Draw sample ROIs</h3><p>Additional ROIs are samples. Rename them, enter the volume currently loaded, and review the suggested volume for the next loading.</p><h3>6. Review and export</h3><p>Select any ROI to inspect net intensity, saturation ratio, saturated-pixel count, and status. Select <strong>Export</strong> to generate a CSV file.</p></div>
+        <div class="section"><h2>Workspace overview</h2><div class="grid"><div class="card"><strong>Image workspace</strong>Contains zoom, brightness, contrast, image upload, reset, and this guide.</div><div class="card"><strong>Quantification workspace</strong>Contains global controls, the ROI list, ROI details, and export.</div><div class="card"><strong>ROI list</strong>Lets you assign the selected ROI as background or reference and inspect sample cards.</div><div class="card"><strong>ROI details</strong>Shows intensity, saturation ratio, saturated pixels, risk status, and deletion controls.</div></div></div>
+        <div class="section"><h2>Keyboard and pointer controls</h2><ul><li>Click a blank canvas area to create an ROI.</li><li>Click an existing ROI to select it.</li><li>Drag an ROI to reposition it.</li><li><code>Arrow keys</code>: move the selected ROI by 1 px.</li><li><code>Shift + Arrow keys</code>: move it by 10 px.</li><li><code>Backspace</code>: delete the selected ROI.</li></ul></div>
+        <div class="section"><h2>Interpreting saturation</h2><p>The saturation status is determined from signal-end saturation for the selected polarity: <code>No risk</code>, <code>Acceptable</code>, <code>Interpret with caution</code>, or <code>Not recommended for strict quantification</code>. If a band is visibly overexposed, reacquire the image rather than relying on display enhancement.</p><p>Saturated pixels reach the sensor limit, so true intensity differences can no longer be recorded. Higher saturation counts and ratios reduce linearity and may compress fold differences between samples. Net intensity may still be informative, but precise quantitative comparison becomes less reliable. Prefer shorter exposure or lower signal strength when saturation is substantial.</p></div>`;
+      function setGuideLanguage(language) {
+        localStorage.setItem('wb-calculator-language', language);
+        const url = new URL(location.href);
+        if (language === 'en') url.searchParams.set('lang', 'en'); else url.searchParams.delete('lang');
+        if (language === 'en') { guideBody.innerHTML = englishGuide; document.documentElement.lang = 'en'; document.title = 'Western Blot Quantification Guide'; }
+        else { location.href = url.pathname; return; }
+        history.replaceState({}, '', url);
+        document.querySelectorAll('[data-language]').forEach(button => button.addEventListener('click', () => setGuideLanguage(button.dataset.language)));
+      }
+      if (guideLanguage === 'en') setGuideLanguage('en');
+      else document.querySelectorAll('[data-language]').forEach(button => button.addEventListener('click', () => setGuideLanguage(button.dataset.language)));
+    </script>
   </body>
 </html>

@@ -11,8 +11,22 @@ import QuantPanel from './components/QuantPanel';
 import BandList from './components/BandList';
 import { clampBandToBounds } from './lib/rect';
 import useCanvasInteraction from './hooks/useCanvasInteraction';
+import { copy } from './i18n';
 
 const App = () => {
+  const [language, setLanguage] = useState(() => new URLSearchParams(window.location.search).get('lang') === 'en' || localStorage.getItem('wb-calculator-language') === 'en' ? 'en' : 'zh');
+  const t = copy[language];
+  const changeLanguage = (nextLanguage) => {
+    setLanguage(nextLanguage);
+    localStorage.setItem('wb-calculator-language', nextLanguage);
+    const url = new URL(window.location.href);
+    if (nextLanguage === 'en') url.searchParams.set('lang', 'en'); else url.searchParams.delete('lang');
+    window.history.replaceState({}, '', url);
+  };
+  useEffect(() => {
+    document.documentElement.lang = language === 'en' ? 'en' : 'zh-CN';
+    document.title = `${t.title} | CyanHelix`;
+  }, [language, t.title]);
   // --- 核心状态 ---
   const [image, setImage] = useState(null);
   const [imageFileName, setImageFileName] = useState('');
@@ -163,15 +177,15 @@ const App = () => {
   }, []);
 
   const getDefaultBandLabel = useCallback((band, index) => {
-    if (band.id === bgBandId) return '背景';
-    return `样品-${index + 1}`;
-  }, [bgBandId]);
+    if (band.id === bgBandId) return t.background;
+    return t.sample(index + 1);
+  }, [bgBandId, t]);
 
   const getBandLabel = useCallback((band, index) => {
-    if (band.id === bgBandId) return '背景';
+    if (band.id === bgBandId) return t.background;
     const customName = String(band.name || '').trim();
     return customName || getDefaultBandLabel(band, index);
-  }, [bgBandId, getDefaultBandLabel]);
+  }, [bgBandId, getDefaultBandLabel, t]);
 
   const clampBandToImage = useCallback((band) => {
     if (!imgRef.current) return band;
@@ -286,7 +300,7 @@ const App = () => {
     reader.onload = (event) => {
       const isTiff = file.name.toLowerCase().match(/\.tiff?$/);
       if (isTiff) {
-        if (!window.UTIF) { alert("解析库未就绪"); setIsProcessing(false); return; }
+        if (!window.UTIF) { alert(t.tiffUnavailable); setIsProcessing(false); return; }
         try {
           const buffer = event.target.result;
           const ifds = window.UTIF.decode(buffer);
@@ -329,7 +343,7 @@ const App = () => {
             };
           })();
           loadImageData(tc.toDataURL(), quantData);
-        } catch { alert("TIFF解析失败"); setIsProcessing(false); }
+        } catch { alert(t.tiffFailed); setIsProcessing(false); }
       } else {
         loadImageData(event.target.result, null);
       }
@@ -366,7 +380,7 @@ const App = () => {
   {/* 把 h1 改成“标题 + 首页按钮”同行 */}
   <div className="flex items-center gap-4">
     <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-      WB 蛋白定量助手 <span className="text-indigo-600 font-black">Pro Max</span>
+      {t.title} <span className="text-indigo-600 font-black">Pro Max</span>
     </h1>
 
     {/* 首页按钮 */}
@@ -388,10 +402,14 @@ const App = () => {
   transition-all duration-200
 "
 
-      title="打开首页"
+      title={t.openHome}
     >
-      回到首页
+      {t.home}
     </a>
+    <div className="flex overflow-hidden rounded-xl border border-slate-200 bg-white" role="group" aria-label={t.language}>
+      <button type="button" onClick={() => changeLanguage('zh')} aria-pressed={language === 'zh'} className={`px-3 py-2 text-xs font-black ${language === 'zh' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>中文</button>
+      <button type="button" onClick={() => changeLanguage('en')} aria-pressed={language === 'en'} className={`border-l border-slate-200 px-3 py-2 text-xs font-black ${language === 'en' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>EN</button>
+    </div>
   </div>
 
   <p className="text-xs font-black text-slate-400 uppercase tracking-[0.3em] font-mono mt-1 italic">
@@ -404,17 +422,18 @@ const App = () => {
           <div className="mx-auto flex w-full max-w-[1120px] items-start gap-5 rounded-[24px] border border-slate-200 bg-white px-5 py-5 shadow-sm">
             <div className="shrink-0 rounded-xl bg-indigo-600 p-2.5 text-white shadow-lg shadow-indigo-100"><Info size={22}/></div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5 flex-1 text-[13px] font-bold text-slate-500 leading-5">
-              <div><p className="text-indigo-600 font-black uppercase text-[11px] mb-1 tracking-[0.2em]">Step 1</p>上传图像</div>
-              <div className="border-l pl-4 md:pl-5"><p className="text-indigo-600 font-black uppercase text-[11px] mb-1 tracking-[0.2em]">Step 2</p>设置背景</div>
-              <div className="border-l pl-4 md:pl-5"><p className="text-indigo-600 font-black uppercase text-[11px] mb-1 tracking-[0.2em]">Step 3</p>选择基准</div>
-              <div className="border-l pl-4 md:pl-5"><p className="text-indigo-600 font-black uppercase text-[11px] mb-1 tracking-[0.2em]">Step 4</p>调整并导出</div>
+              <div><p className="text-indigo-600 font-black uppercase text-[11px] mb-1 tracking-[0.2em]">Step 1</p>{t.step1}</div>
+              <div className="border-l pl-4 md:pl-5"><p className="text-indigo-600 font-black uppercase text-[11px] mb-1 tracking-[0.2em]">Step 2</p>{t.step2}</div>
+              <div className="border-l pl-4 md:pl-5"><p className="text-indigo-600 font-black uppercase text-[11px] mb-1 tracking-[0.2em]">Step 3</p>{t.step3}</div>
+              <div className="border-l pl-4 md:pl-5"><p className="text-indigo-600 font-black uppercase text-[11px] mb-1 tracking-[0.2em]">Step 4</p>{t.step4}</div>
             </div>
           </div>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           <div className="lg:col-span-7">
-            <ImageCanvas
+              <ImageCanvas
+              t={t}
               zoom={zoom}
               onZoomOut={() => setZoom(Math.max(0.1, zoom - 0.2))}
               onZoomIn={() => setZoom(Math.min(10, zoom + 0.2))}
@@ -445,6 +464,7 @@ const App = () => {
           <div className="lg:col-span-5">
             <div className="bg-white rounded-[48px] shadow-2xl border border-slate-200 flex flex-col h-[calc(100vh-12rem)] min-h-[560px] max-h-[calc(100vh-4rem)] overflow-hidden">
               <QuantPanel
+                t={t}
                 calculationMode={calculationMode}
                 onCalculationModeChange={setCalculationMode}
                 signalPolarity={signalPolarity}
@@ -464,6 +484,7 @@ const App = () => {
               />
 
               <BandList
+                t={t}
                 bands={bands}
                 selectedBandId={selectedBandId}
               showMagnifier={showMagnifier}
