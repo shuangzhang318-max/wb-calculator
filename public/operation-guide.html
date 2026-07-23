@@ -3,13 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Western Blot Quantification Tool user guide: upload blot images, set a background ROI and reference sample, interpret saturation, and export local results.">
+    <meta id="meta-description" name="description" content="Western Blot 定量操作指南：上传 blot 图像、设置背景 ROI 和参考样品、检查饱和度，并在本地导出归一化结果。">
     <meta name="robots" content="index,follow">
     <link rel="canonical" href="https://wb.unwedomain.xyz/operation-guide.html">
     <link rel="alternate" hreflang="zh-CN" href="https://wb.unwedomain.xyz/operation-guide.html">
     <link rel="alternate" hreflang="en" href="https://wb.unwedomain.xyz/operation-guide.html?lang=en">
     <link rel="alternate" hreflang="x-default" href="https://wb.unwedomain.xyz/operation-guide.html">
-    <title>Western Blot Quantification Tool User Guide | CyanHelix</title>
+    <meta id="og-title" property="og:title" content="Western Blot 定量操作指南 | ROI 分析、归一化与 CSV 导出">
+    <meta id="og-description" property="og:description" content="了解如何在浏览器本地完成 Western Blot ROI 定量、背景扣除、参考归一化、饱和度检查与 CSV 导出。">
+    <title>Western Blot 定量操作指南 | ROI 分析、归一化与 CSV 导出</title>
     <style>
       :root {
         color-scheme: light;
@@ -198,7 +200,14 @@
         localStorage.setItem('wb-calculator-language', language);
         const url = new URL(location.href);
         if (language === 'en') url.searchParams.set('lang', 'en'); else url.searchParams.delete('lang');
-        if (language === 'en') { guideBody.innerHTML = englishGuide; document.documentElement.lang = 'en'; document.title = 'Western Blot Quantification Guide'; }
+        if (language === 'en') {
+          guideBody.innerHTML = englishGuide;
+          document.documentElement.lang = 'en';
+          document.title = 'Western Blot Quantification Guide | ROI Analysis and Normalization';
+          document.getElementById('meta-description').content = 'Western Blot quantification guide for image upload, background ROI selection, reference normalization, saturation review, and local CSV export.';
+          document.getElementById('og-title').content = 'Western Blot Quantification Guide | ROI Analysis and Normalization';
+          document.getElementById('og-description').content = 'Learn browser-based Western Blot ROI analysis, background subtraction, reference normalization, saturation review, and CSV export.';
+        }
         else { location.href = url.pathname; return; }
         history.replaceState({}, '', url);
         document.querySelectorAll('[data-language]').forEach(button => button.addEventListener('click', () => setGuideLanguage(button.dataset.language)));
