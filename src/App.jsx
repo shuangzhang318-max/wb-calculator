@@ -25,8 +25,17 @@ const App = () => {
   };
   useEffect(() => {
     document.documentElement.lang = language === 'en' ? 'en' : 'zh-CN';
-    document.title = `${t.title} | CyanHelix`;
-  }, [language, t.title]);
+    document.title = t.seoTitle;
+    document.querySelector('meta[name="description"]')?.setAttribute('content', t.seoDescription);
+    document.querySelector('meta[property="og:title"]')?.setAttribute('content', t.seoTitle);
+    document.querySelector('meta[property="og:description"]')?.setAttribute('content', t.ogDescription);
+    document.getElementById('og-url')?.setAttribute('content', language === 'en'
+      ? 'https://wb.unwedomain.xyz/?lang=en'
+      : 'https://wb.unwedomain.xyz/');
+    document.querySelector('link[rel="canonical"]')?.setAttribute('href', language === 'en'
+      ? 'https://wb.unwedomain.xyz/?lang=en'
+      : 'https://wb.unwedomain.xyz/');
+  }, [language, t]);
   // --- 核心状态 ---
   const [image, setImage] = useState(null);
   const [imageFileName, setImageFileName] = useState('');
